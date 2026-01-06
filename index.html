@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Synthiv Consulting</title>
+    <meta name="description" content="Synthiv Consulting — strategy, delivery, and digital execution." />
+
+    <!-- ShaderToy-compatible fragment shader via raw WebGL -->
+    <style>
+      :root {
+        --bg: #0b0f17;
+        --fg: #eef2ff;
+        --muted: rgba(238, 242, 255, 0.72);
+        --card: rgba(12, 18, 30, 0.62);
+        --stroke: rgba(255, 255, 255, 0.10);
+        --accent: #79c0ff;
+        --accent2: #a5ffd6;
+        --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+        --radius: 18px;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      html { scroll-behavior: smooth; }
+
+      /* Guided scroll feel */
+      @media (prefers-reduced-motion: no-preference) {
+        body { scroll-snap-type: y proximity; }
+        section.hero, section.section { scroll-snap-align: start; scroll-margin-top: 86px; }
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        background: var(--bg);
+        color: var(--fg);
+        overflow-x: hidden;
+      }
+
+      /* Shader background */
+      .shaderWrap {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+      }
+
+      canvas#shaderCanvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        border: 0;
+        /* Make it behave like a background */
+        pointer-events: none;
+      }
+
+      /* Readability overlay above the shader, below the content */
+      .shaderOverlay {
+        position: absolute;
+        inset: 0;
+        /* Keep readability, but let the shader show through more */
+        background:
+          radial-gradient(900px 600px at 25% 15%, rgba(121, 192, 255, 0.18), transparent 55%),
+          radial-gradient(900px 650px at 80% 70%, rgba(165, 255, 214, 0.10), transparent 55%),
+          linear-gradient(to bottom, rgba(11, 15, 23, 0.06), rgba(11, 15, 23, 0.45));
+        pointer-events: none;
+      }
+
+      .page {
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        backdrop-filter: blur(10px);
+        background: rgba(11, 15, 23, 0.55);
+        border-bottom: 1px solid var(--stroke);
+      }
+
+      .nav {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 650;
+      }
+
+      .mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(121, 192, 255, 0.95), rgba(165, 255, 214, 0.85));
+      }
+
+      .nav a { color: var(--muted); text-decoration: none; position: relative; padding: 10px 8px; border-radius: 10px; }
+      .nav a:hover { color: var(--fg); background: rgba(255,255,255,0.04); }
+      .nav a.active { color: var(--fg); }
+      .nav a.active::after {
+        content: "";
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 5px;
+        height: 2px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(121,192,255,0.95), rgba(165,255,214,0.85));
+      }
+
+      .btn {
+        padding: 10px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--stroke);
+        background: rgba(255,255,255,0.06);
+        color: var(--fg);
+        text-decoration: none;
+      }
+      .btn.primary {
+        background: linear-gradient(135deg, rgba(121,192,255,.92), rgba(165,255,214,.72));
+        color: #06101b;
+      }
+
+      main { flex: 1; }
+      .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+      .hero { padding: 72px 0 36px; }
+      .heroGrid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 22px; align-items: stretch; }
+      @media (max-width: 900px) { .heroGrid { grid-template-columns: 1fr; } .hero { padding-top: 52px; } }
+
+      section.section { padding: 34px 0; }
+      .sectionHead { margin-bottom: 14px; }
+      .kicker {
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-size: 0.78rem;
+        color: rgba(238, 242, 255, 0.68);
+        margin-bottom: 10px;
+      }
+      h2 { margin: 0 0 10px; font-size: 1.35rem; letter-spacing: -0.01em; }
+      .muted { color: var(--muted); line-height: 1.65; margin: 0; }
+
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      @media (max-width: 900px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+      .pad { padding: 22px; }
+      .pillRow { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--stroke);
+        background: rgba(255,255,255,0.05);
+        color: rgba(238, 242, 255, 0.82);
+        font-size: 0.92rem;
+        white-space: nowrap;
+      }
+
+      .list { margin: 12px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.7; }
+      .ctaRow { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+
+      .sectionDivider {
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(255,255,255,0.14), transparent);
+        margin: 10px 0 0;
+      }
+
+      .card {
+        border-radius: var(--radius);
+        border: 1px solid var(--stroke);
+        background: var(--card);
+        backdrop-filter: blur(12px);
+        box-shadow: var(--shadow);
+      }
+
+      .heroCopy { padding: 26px; }
+      h1 { font-size: clamp(2.05rem, 4vw, 3rem); margin: 0 0 10px; }
+      .lead { color: var(--muted); line-height: 1.6; }
+
+      footer { padding: 26px 0; color: rgba(238,242,255,.6); }
+
+      /* Thin scroll progress indicator */
+      .scrollProgress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 2px;
+        width: 100vw;
+        z-index: 3;
+        background: rgba(255,255,255,0.06);
+      }
+      .scrollProgress > div {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, rgba(121,192,255,0.95), rgba(165,255,214,0.85));
+      }
+
+      /* Optional: soft section reveal */
+      .reveal {
+        opacity: 0;
+        transform: translateY(14px);
+        transition: opacity 520ms ease, transform 520ms ease;
+      }
+      .reveal.in {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal { opacity: 1; transform: none; transition: none; }
+        body { scroll-snap-type: none; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="scrollProgress" aria-hidden="true"><div id="scrollBar"></div></div>
+    <!-- ShaderToy-style animated background -->
+    <div class="shaderWrap" aria-hidden="true">
+      <canvas id="shaderCanvas"></canvas>
+      <div class="shaderOverlay"></div>
+    </div>
+
+    <div class="page">
+      <header>
+        <div class="nav">
+          <div class="brand"><div class="mark"></div> Synthiv Consulting</div>
+          <nav>
+            <a href="#top">Top</a>
+            <a href="#about">About</a>
+            <a href="#services">Services</a>
+            <a href="#approach">Approach</a>
+            <a href="#work">Work</a>
+            <a href="#pricing">Engagement</a>
+            <a href="#faq">FAQ</a>
+            <a class="btn" href="#contact">Book Intro</a>
+          </nav>
+        </div>
+      </header>
+
+      <main>
+        <div class="container">
+          <!-- HERO -->
+          <section class="hero reveal" id="top">
+            <div class="heroGrid">
+              <div class="card heroCopy">
+                <div class="kicker">Consulting • Delivery • Digital</div>
+                <h1>Strategy that ships. Systems that scale.</h1>
+                <p class="lead">We help teams deliver modern digital experiences with clarity, velocity, and measurable outcomes.</p>
+                <div class="ctaRow">
+                  <a class="btn primary" href="#contact">Start a Project</a>
+                  <a class="btn" href="#services">View Services</a>
+                </div>
+                <div class="pillRow" aria-label="Highlights">
+                  <span class="pill">SOW & scope control</span>
+                  <span class="pill">Web modernization</span>
+                  <span class="pill">Interactive experiences</span>
+                  <span class="pill">Launch readiness</span>
+                </div>
+              </div>
+
+              <div class="card pad" aria-label="Hero image">
+                <!-- Replace with your image: assets/img/hero.jpg -->
+                <div style="border-radius: 14px; overflow:hidden; border:1px solid rgba(255,255,255,0.10);">
+                  <img
+                    src="assets/img/hero.jpg"
+                    alt="Abstract consulting hero image"
+                    style="width:100%; height:320px; object-fit:cover; display:block;"
+                    loading="eager"
+                  />
+                </div>
+                <p class="muted" style="margin-top:12px; font-size:0.95rem;">
+                  Available for short, high-impact engagements and longer delivery partnerships.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- ABOUT -->
+          <section class="section reveal" id="about">
+            <div class="sectionHead">
+              <div class="kicker">About</div>
+              <h2>Senior-level execution without the overhead</h2>
+              <p class="muted">Synthiv Consulting helps teams clarify scope, de-risk delivery, and ship polished digital work. We operate as a focused partner: outcomes first, minimal ceremony, clear communication.</p>
+              <div class="sectionDivider" aria-hidden="true"></div>
+            </div>
+            <div class="grid3">
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Clarity</h2>
+                <p class="muted">Requirements, constraints, and decision points documented early to prevent churn.</p>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Velocity</h2>
+                <p class="muted">Short iterations, visible progress, and a bias toward shipping the highest-value slice.</p>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Quality</h2>
+                <p class="muted">Performance, accessibility, and maintainability built in—not bolted on.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- SERVICES -->
+          <section class="section reveal" id="services">
+            <div class="sectionHead">
+              <div class="kicker">Services</div>
+              <h2>What we deliver</h2>
+              <p class="muted">Pick a targeted engagement or combine services into a full delivery plan.</p>
+              <div class="sectionDivider" aria-hidden="true"></div>
+            </div>
+            <div class="grid2">
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Discovery & SOW</h2>
+                <ul class="list">
+                  <li>Stakeholder alignment, scope boundaries, success metrics</li>
+                  <li>Milestones, risks, assumptions, and change control</li>
+                  <li>Execution plan with timeline and responsibilities</li>
+                </ul>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Web & UX Delivery</h2>
+                <ul class="list">
+                  <li>Single-page and marketing sites (fast, conversion-focused)</li>
+                  <li>Design-to-build implementation (HTML/CSS/JS, React)</li>
+                  <li>Performance budgets, SEO basics, accessibility checks</li>
+                </ul>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Interactive / Motion</h2>
+                <ul class="list">
+                  <li>Shader backgrounds, micro-interactions, scroll polish</li>
+                  <li>Visual storytelling that remains readable and performant</li>
+                  <li>Reduced-motion fallbacks and device-aware tuning</li>
+                </ul>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Program Execution</h2>
+                <ul class="list">
+                  <li>Backlog management, vendor coordination, delivery cadence</li>
+                  <li>Release readiness, QA checklists, handoff documentation</li>
+                  <li>Operational rigor without heavyweight process</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- APPROACH -->
+          <section class="section reveal" id="approach">
+            <div class="sectionHead">
+              <div class="kicker">Approach</div>
+              <h2>A simple delivery system that reduces risk</h2>
+              <p class="muted">A repeatable workflow that keeps stakeholders aligned and ensures momentum.</p>
+              <div class="sectionDivider" aria-hidden="true"></div>
+            </div>
+            <div class="grid3">
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">1) Align</h2>
+                <p class="muted">Define outcomes, constraints, owners, and what “done” means.</p>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">2) Design</h2>
+                <p class="muted">Information architecture, UX flows, and technical plan.</p>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">3) Build</h2>
+                <p class="muted">Iterate quickly with demos, feedback loops, and controlled scope.</p>
+              </div>
+            </div>
+            <div class="grid2" style="margin-top:16px;">
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">4) Launch</h2>
+                <p class="muted">Performance hardening, content polish, QA, and deployment support.</p>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">5) Enable</h2>
+                <p class="muted">Handoff docs, training, and a roadmap for the next iteration.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- WORK -->
+          <section class="section reveal" id="work">
+            <div class="sectionHead">
+              <div class="kicker">Work</div>
+              <h2>Case study-style outcomes</h2>
+              <p class="muted">Swap these placeholders with your actual projects and metrics.</p>
+              <div class="sectionDivider" aria-hidden="true"></div>
+            </div>
+            <div class="grid3">
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Interactive Web Experience</h2>
+                <p class="muted">Modern single-page build with animated background and fast load time.</p>
+                <div class="pillRow"><span class="pill">UI/UX</span><span class="pill">Performance</span><span class="pill">Launch</span></div>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Delivery Turnaround</h2>
+                <p class="muted">Defined scope, phased delivery, and clear milestones for stakeholders.</p>
+                <div class="pillRow"><span class="pill">SOW</span><span class="pill">PM</span><span class="pill">QA</span></div>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Modernization</h2>
+                <p class="muted">Refactor and polish to improve maintainability and conversion flow.</p>
+                <div class="pillRow"><span class="pill">Refactor</span><span class="pill">SEO</span><span class="pill">Accessibility</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- PRICING / ENGAGEMENT -->
+          <section class="section reveal" id="pricing">
+            <div class="sectionHead">
+              <div class="kicker">Engagement</div>
+              <h2>Flexible ways to work together</h2>
+              <p class="muted">Choose the model that matches your risk tolerance and timeline.</p>
+              <div class="sectionDivider" aria-hidden="true"></div>
+            </div>
+            <div class="grid3">
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Fixed-scope</h2>
+                <p class="muted">Best for clear requirements and a defined deliverable.</p>
+                <ul class="list">
+                  <li>Milestones + acceptance criteria</li>
+                  <li>Change control built in</li>
+                </ul>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Retainer</h2>
+                <p class="muted">Best for ongoing improvements and operational support.</p>
+                <ul class="list">
+                  <li>Monthly capacity allocation</li>
+                  <li>Priority queue + SLAs</li>
+                </ul>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.05rem; margin:0 0 8px;">Project sprint</h2>
+                <p class="muted">Best for quick discovery, prototyping, or a focused build.</p>
+                <ul class="list">
+                  <li>1–3 week sprint cadence</li>
+                  <li>Demo-driven decisions</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- FAQ -->
+          <section class="section reveal" id="faq">
+            <div class="sectionHead">
+              <div class="kicker">FAQ</div>
+              <h2>Common questions</h2>
+              <p class="muted">Clear answers up front keep projects moving.</p>
+              <div class="sectionDivider" aria-hidden="true"></div>
+            </div>
+            <div class="grid2">
+              <div class="card pad">
+                <h2 style="font-size:1.02rem; margin:0 0 8px;">What do you need to start?</h2>
+                <p class="muted">A short brief: goals, constraints, stakeholders, and any existing assets or links.</p>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.02rem; margin:0 0 8px;">Do you work with existing teams?</h2>
+                <p class="muted">Yes—handoff-friendly deliverables, clear PRs, and documentation are standard.</p>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.02rem; margin:0 0 8px;">How do you manage scope?</h2>
+                <p class="muted">We define acceptance criteria and handle changes through a lightweight, documented process.</p>
+              </div>
+              <div class="card pad">
+                <h2 style="font-size:1.02rem; margin:0 0 8px;">What’s a typical timeline?</h2>
+                <p class="muted">Most web builds range from 2–6 weeks depending on content readiness and review speed.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- CONTACT -->
+          <section class="section reveal" id="contact">
+            <div class="sectionHead">
+              <div class="kicker">Contact</div>
+              <h2>Let’s talk</h2>
+              <p class="muted">Send a short summary and timeline. We’ll respond with next steps and a proposed scope.</p>
+              <div class="sectionDivider" aria-hidden="true"></div>
+            </div>
+            <div class="card pad">
+              <div class="ctaRow">
+                <a class="btn primary" href="mailto:hello@example.com?subject=Project%20Inquiry%20—%20Synthiv%20Consulting&body=Hi%20Synthiv%2C%0A%0AProject%20summary%3A%0A%0ATimeline%3A%0ABudget%20range%3A%0A%0ABest%20way%20to%20reach%20me%3A%0A%0AThanks%2C">Email Us</a>
+                <a class="btn" href="#top">Back to Top</a>
+              </div>
+              <p class="muted" style="margin-top:12px; font-size:0.95rem;">Prefer a form? Add Formspree / Netlify Forms later without changing the layout.</p>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <footer>
+        <div class="container">© <span id="year"></span> Synthiv Consulting</div>
+      </footer>
+    </div>
+
+    <script>
+      // Native/local shader background (no iframe)
+      const shaderCanvas = document.getElementById('shaderCanvas');
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const gl = shaderCanvas.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: false });
+
+      function glResize() {
+        if (!gl) return;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const w = Math.floor(window.innerWidth * dpr);
+        const h = Math.floor(window.innerHeight * dpr);
+        if (shaderCanvas.width !== w || shaderCanvas.height !== h) {
+          shaderCanvas.width = w;
+          shaderCanvas.height = h;
+          shaderCanvas.style.width = window.innerWidth + 'px';
+          shaderCanvas.style.height = window.innerHeight + 'px';
+          gl.viewport(0, 0, w, h);
+        }
+      }
+
+      // Minimal ShaderToy-style uniforms (native runner)
+      const vsrc = `
+        attribute vec2 aPos;
+        void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+      `;
+
+      // A lightweight, brand-friendly animated field.
+      // Tuned to stay subtle behind glass UI.
+      const fsrc = `
+        precision highp float;
+        uniform vec2 uRes;
+        uniform float uTime;
+        uniform float uScroll;
+        uniform vec2 uMouse;
+
+        // Hash / noise
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+        float noise(vec2 p){
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          float a = hash(i);
+          float b = hash(i + vec2(1.0, 0.0));
+          float c = hash(i + vec2(0.0, 1.0));
+          float d = hash(i + vec2(1.0, 1.0));
+          vec2 u = f*f*(3.0-2.0*f);
+          return mix(a, b, u.x) + (c - a)*u.y*(1.0-u.x) + (d - b)*u.x*u.y;
+        }
+
+        float fbm(vec2 p){
+          float v = 0.0;
+          float a = 0.55;
+          for(int i=0;i<6;i++){
+            v += a * noise(p);
+            p = mat2(1.6, -1.2, 1.2, 1.6) * p; // rotate/scale for more motion
+            a *= 0.52;
+          }
+          return v;
+        }
+
+        vec3 palette(float t){
+          // blue -> mint -> violet cycling
+          vec3 a = vec3(0.06, 0.08, 0.12);
+          vec3 b = vec3(0.32, 0.62, 0.95);
+          vec3 c = vec3(0.55, 0.98, 0.84);
+          vec3 d = vec3(0.72, 0.46, 0.98);
+          float k = 0.5 + 0.5*sin(6.28318*t);
+          float m = 0.5 + 0.5*sin(6.28318*(t+0.33));
+          return mix(a, mix(mix(b,c,k), d, m), 0.85);
+        }
+
+        void main(){
+          vec2 uv = gl_FragCoord.xy / uRes;
+          vec2 p = uv * 2.0 - 1.0;
+          p.x *= uRes.x / uRes.y;
+
+          // Normalize mouse to -1..1 (window listener provides pixels in canvas space)
+          vec2 m = (uMouse / uRes) * 2.0 - 1.0;
+          m.x *= uRes.x / uRes.y;
+
+          // More active motion: time + scroll + mouse warp
+          float s = uScroll;
+          float t = uTime;
+
+          vec2 q = p;
+          q += 0.18 * vec2(
+            sin(t*0.55 + p.y*2.2) + 0.35*sin(t*1.15 + p.y*5.2),
+            cos(t*0.48 + p.x*2.0) + 0.30*cos(t*1.05 + p.x*4.8)
+          );
+          q += vec2(0.0, -0.55) * s;
+          q += 0.10 * (p - m) / (0.35 + length(p - m));
+
+          // Layered fields
+          float n1 = fbm(q*1.75 + t*0.18);
+          float n2 = fbm(q*3.10 - t*0.14);
+          float n3 = fbm(q*5.20 + vec2(0.0, t*0.10));
+
+          // Ridges + moving scanlines for visibility
+          float ridges = 1.0 - abs(2.0*n2 - 1.0);
+          ridges = pow(clamp(ridges, 0.0, 1.0), 2.6);
+
+          float lines = 0.5 + 0.5*sin(12.0*(q.x + 0.35*q.y) + t*1.2);
+          lines *= 0.35 + 0.65*pow(0.5 + 0.5*sin(10.0*q.y - t*1.1), 2.0);
+
+          // Brighter energetic blobs
+          float d1 = length(p - vec2(-0.45, 0.35 + 0.22*sin(t*0.65)));
+          float d2 = length(p - vec2( 0.55, -0.25 + 0.18*cos(t*0.55)));
+          float d3 = length(p - vec2( 0.10,  0.10 + 0.20*sin(t*0.35)));
+          float glow = 0.55/(d1*d1 + 0.10) + 0.40/(d2*d2 + 0.14) + 0.26/(d3*d3 + 0.18);
+
+          // Color + energy mix
+          vec3 base = vec3(0.03, 0.04, 0.06);
+          float cyc = fract(0.08*t + 0.10*s);
+          vec3 pal = palette(cyc + 0.20*n1);
+
+          float energy = 0.55*n1 + 0.35*ridges + 0.25*n3 + 0.22*lines;
+          vec3 col = mix(base, pal, clamp(energy, 0.0, 1.0));
+          col += glow * (0.10 + 0.06*sin(t*0.8));
+
+          // Vignette
+          float vig = smoothstep(1.35, 0.18, length(p));
+          col *= vig;
+
+          // Push contrast for visibility
+          col = pow(col, vec3(0.92));
+
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `;
+
+      function compile(type, src) {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+          console.error(gl.getShaderInfoLog(sh));
+          throw new Error('Shader compile failed');
+        }
+        return sh;
+      }
+
+      let prog, uRes, uTime, uScroll, uMouse;
+      if (gl) {
+        prog = gl.createProgram();
+        gl.attachShader(prog, compile(gl.VERTEX_SHADER, vsrc));
+        gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsrc));
+        gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+          console.error(gl.getProgramInfoLog(prog));
+          throw new Error('Program link failed');
+        }
+        gl.useProgram(prog);
+
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+          -1, -1,  1, -1,  -1,  1,
+          -1,  1,  1, -1,   1,  1
+        ]), gl.STATIC_DRAW);
+
+        const aPos = gl.getAttribLocation(prog, 'aPos');
+        gl.enableVertexAttribArray(aPos);
+        gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+        uRes = gl.getUniformLocation(prog, 'uRes');
+        uTime = gl.getUniformLocation(prog, 'uTime');
+        uScroll = gl.getUniformLocation(prog, 'uScroll');
+        uMouse = gl.getUniformLocation(prog, 'uMouse');
+
+        gl.disable(gl.DEPTH_TEST);
+        gl.disable(gl.CULL_FACE);
+      }
+
+      function getScroll01() {
+        const max = (document.documentElement.scrollHeight - window.innerHeight) || 1;
+        return Math.max(0, Math.min(1, (window.scrollY || 0) / max));
+      }
+
+      // Track mouse globally; canvas ignores pointer events but we can still animate responsively
+      let mouseX = shaderCanvas.width * 0.5;
+      let mouseY = shaderCanvas.height * 0.5;
+      window.addEventListener('mousemove', (e) => {
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        mouseX = e.clientX * dpr;
+        // bottom-left origin in shader space
+        mouseY = (window.innerHeight - e.clientY) * dpr;
+      }, { passive: true });
+
+      let t0 = performance.now();
+      function draw(now) {
+        if (!gl) return;
+        glResize();
+        const time = (now - t0) * 0.001;
+        gl.uniform2f(uRes, shaderCanvas.width, shaderCanvas.height);
+        gl.uniform1f(uTime, time);
+        gl.uniform1f(uScroll, getScroll01());
+        // Mouse in canvas pixel coords (even though canvas ignores pointer events)
+        gl.uniform2f(uMouse, mouseX, mouseY);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        if (!prefersReduced) requestAnimationFrame(draw);
+      }
+
+      window.addEventListener('resize', () => {
+        glResize();
+        if (prefersReduced) requestAnimationFrame(draw);
+      }, { passive: true });
+
+      // Render once for reduced motion; animate otherwise
+      requestAnimationFrame(draw);
+
+      // Footer year
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      // Scroll progress
+      const scrollBar = document.getElementById('scrollBar');
+      function updateProgress() {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+        const max = (document.documentElement.scrollHeight - window.innerHeight) || 1;
+        const pct = Math.max(0, Math.min(1, scrollTop / max));
+        scrollBar.style.width = (pct * 100).toFixed(2) + '%';
+      }
+      window.addEventListener('scroll', updateProgress, { passive: true });
+      updateProgress();
+
+      // Scroll-spy: highlight active nav link by section
+      const nav = document.querySelector('header nav');
+      const links = Array.from(nav.querySelectorAll('a[href^="#"]'));
+      const sections = links
+        .map(a => document.querySelector(a.getAttribute('href')))
+        .filter(Boolean);
+
+      function setActive(id) {
+        links.forEach(a => {
+          const isActive = a.getAttribute('href') === `#${id}`;
+          a.classList.toggle('active', isActive);
+        });
+      }
+
+      const io = new IntersectionObserver((entries) => {
+        // Prefer the most visible intersecting section
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target?.id) setActive(visible.target.id);
+      }, { threshold: [0.22, 0.35, 0.5, 0.65], rootMargin: '-20% 0px -55% 0px' });
+
+      sections.forEach(s => io.observe(s));
+
+      // Soft reveal on enter
+      const revealEls = document.querySelectorAll('.reveal');
+      const revealIO = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) e.target.classList.add('in');
+        }
+      }, { threshold: 0.12, rootMargin: '0px 0px -10% 0px' });
+      revealEls.forEach(el => revealIO.observe(el));
+
+      // Notes:
+      // - Background is now a native, local WebGL shader (no iframe).
+    </script>
+  </body>
+</html>
