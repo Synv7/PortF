@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-synthiv-light text-synthiv-dark;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Headings */
+h1, h2, h3, h4 {
+  font-family: 'GT America', system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+h1 {
+  @apply text-5xl md:text-hero font-black;
+}
+
+h2 {
+  @apply text-section-title;
+}
+
+/* Hero headline */
+.hero-headline {
+  @apply text-hero font-black leading-tight;
+  letter-spacing: -0.02em;
+}
+
+/* Section title */
+.section-title {
+  @apply text-section-title;
+}
+
+/* Muted text */
+.text-muted {
+  @apply text-synthiv-neutral;
+}
+
+/* Card styles */
+.card {
+  @apply bg-white rounded-lg border border-gray-200 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+}
+
+.card-3d {
+  @apply transition-transform duration-300;
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.card-3d:hover {
+  @apply -translate-y-2;
+  transform: rotateX(2deg);
+}
+
+/* Accent glow */
+.accent-glow {
+  @apply border-synthiv-accent shadow-lg;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+}
+
+/* Smooth transitions */
+.transition-smooth {
+  @apply transition-all duration-500 ease-out;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    @apply !animate-none !transition-none;
+  }
+}

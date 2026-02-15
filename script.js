@@ -227,10 +227,20 @@ const sections = links
   .map(a => document.querySelector(a.getAttribute('href')))
   .filter(Boolean);
 
+// Also track section guide dots
+const sectionGuide = document.querySelector('.sectionGuide');
+const guideDots = sectionGuide ? Array.from(sectionGuide.querySelectorAll('a[href^="#"]')) : [];
+
 function setActive(id) {
   links.forEach(a => {
     const isActive = a.getAttribute('href') === `#${id}`;
     a.classList.toggle('active', isActive);
+  });
+  
+  // Update section guide dots
+  guideDots.forEach(dot => {
+    const isActive = dot.getAttribute('href') === `#${id}`;
+    dot.classList.toggle('active', isActive);
   });
 }
 
